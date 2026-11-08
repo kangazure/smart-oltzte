@@ -9,6 +9,7 @@ export const DEFAULT_PARAMS: Params = {
   startOnuId: 1,
   lineProfile: 'line_1',
   snCase: 'olt',
+  nameCase: 'asis',
 }
 
 /**

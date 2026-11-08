@@ -12,12 +12,12 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react'
-import ConfigPreview from './components/ConfigPreview'
 import CustomerForm from './components/CustomerForm'
 import CustomerTable from './components/CustomerTable'
 import HistoryPanel from './components/HistoryPanel'
 import ImportPanel from './components/ImportPanel'
 import MigrationPanel from './components/MigrationPanel'
+import OutputPanel from './components/OutputPanel'
 import ParamsPanel from './components/ParamsPanel'
 import TemplatePanel from './components/TemplatePanel'
 import Toasts, { type ToastMsg } from './components/Toasts'
@@ -27,7 +27,7 @@ import type { ParsedRow } from './lib/parse'
 import { normalizeSn } from './lib/sn'
 import type { Customer, ExistingConfig, HistoryItem, Notify, Params, Templates } from './lib/types'
 import { useLocalStorage } from './lib/useLocalStorage'
-import { copyText, downloadText, stamp, uid } from './lib/util'
+import { uid } from './lib/util'
 
 const ZTE_PRESET = PRESETS.find((p) => p.id === 'zte') ?? PRESETS[PRESETS.length - 1]
 
@@ -117,20 +117,6 @@ export default function App() {
     },
     [config, customers, params, templates, okCount, notify, setHistory],
   )
-
-  const onCopy = async () => {
-    if (!config) return
-    const ok = await copyText(config)
-    notify(ok ? 'Config disalin ke clipboard' : 'Gagal menyalin, coba blok manual', ok ? 'ok' : 'err')
-    if (ok) saveHistory(true)
-  }
-
-  const onDownload = (ext: 'cfg' | 'txt') => {
-    if (!config) return
-    downloadText(`olt-config-${stamp()}.${ext}`, config)
-    saveHistory(true)
-    notify(`File .${ext} diunduh`, 'ok')
-  }
 
   const restore = (item: HistoryItem) => {
     setCustomers(item.customers)
@@ -305,8 +291,16 @@ export default function App() {
             </div>
           </section>
 
-          <section className="min-w-0 space-y-3 lg:sticky lg:top-[5.25rem]">
-            <ConfigPreview config={config} onCopy={onCopy} onDownload={onDownload} onSave={() => saveHistory(false)} />
+          <section className="min-w-0 space-y-3 lg:sticky lg:top-[5.25rem] lg:max-h-[calc(100vh-6.5rem)] lg:overflow-y-auto lg:pr-1">
+            <OutputPanel
+              rows={rows}
+              params={params}
+              templates={templates}
+              fullConfig={config}
+              onParams={setParams}
+              onSaveHistory={saveHistory}
+              notify={notify}
+            />
             <p className="px-1 text-[11px] leading-relaxed text-slate-400 dark:text-slate-500">
               Data tersimpan di browser ini (localStorage) dan tidak dikirim ke server. Uji dulu pada satu ONU sebelum
               paste ke OLT produksi.

@@ -3,6 +3,7 @@ import { SN_REGEX } from '../lib/sn'
 
 interface Props {
   config: string
+  fileName?: string
   onCopy: () => void
   onDownload: (ext: 'cfg' | 'txt') => void
   onSave: () => void
@@ -39,7 +40,7 @@ function Line({ text }: { text: string }) {
 
 const PREVIEW_LIMIT = 600
 
-export default function ConfigPreview({ config, onCopy, onDownload, onSave }: Props) {
+export default function ConfigPreview({ config, fileName = 'olt-config.cfg', onCopy, onDownload, onSave }: Props) {
   const lines = config ? config.replace(/\n$/, '').split('\n') : []
   const shown = lines.length > PREVIEW_LIMIT ? lines.slice(0, PREVIEW_LIMIT) : lines
 
@@ -77,7 +78,7 @@ export default function ConfigPreview({ config, onCopy, onDownload, onSave }: Pr
             <span className="h-2.5 w-2.5 rounded-full bg-rose-500/80" />
             <span className="h-2.5 w-2.5 rounded-full bg-amber-400/80" />
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80" />
-            <span className="ml-2 font-mono text-[11px] text-slate-500">olt-config.cfg</span>
+            <span className="ml-2 truncate font-mono text-[11px] text-slate-500">{fileName}</span>
           </div>
 
           {lines.length === 0 ? (

@@ -25,14 +25,18 @@ export function sanitizeName(raw: string): string {
 
 /** Validasi tiap pelanggan dan tentukan ONU ID (auto-increment per PON, melewati ID yang sudah terpakai). */
 export function analyze(customers: Customer[], params: Params, existing: ExistingConfig): AnalyzedRow[] {
-  const rows: AnalyzedRow[] = customers.map((customer) => ({
-    customer,
-    sn: normalizeSn(customer.sn),
-    cleanName: sanitizeName(customer.name),
-    onuId: null,
-    issues: [],
-    ok: true,
-  }))
+  const upper = params.nameCase === 'upper'
+  const rows: AnalyzedRow[] = customers.map((customer) => {
+    const name = sanitizeName(customer.name)
+    return {
+      customer,
+      sn: normalizeSn(customer.sn),
+      cleanName: upper ? name.toUpperCase() : name,
+      onuId: null,
+      issues: [],
+      ok: true,
+    }
+  })
 
   const snCount = new Map<string, number>()
   for (const r of rows) if (r.sn) snCount.set(r.sn, (snCount.get(r.sn) ?? 0) + 1)
@@ -73,7 +77,7 @@ export function analyze(customers: Customer[], params: Params, existing: Existin
     }
 
     if (!r.cleanName) add('error', 'Nama kosong / tidak valid')
-    else if (r.cleanName !== c.name.trim().replace(/\s+/g, '_')) add('warn', `Nama disesuaikan: ${r.cleanName}`)
+    else if (sanitizeName(c.name) !== c.name.trim().replace(/\s+/g, '_')) add('warn', `Nama disesuaikan: ${r.cleanName}`)
 
     if (!Number.isInteger(c.pon) || c.pon < 1) add('error', 'PON tidak valid')
 
@@ -142,4 +146,77 @@ export function generateConfig(rows: AnalyzedRow[], params: Params, templates: T
   parts.push(render(clean(templates.footer), base))
 
   return parts.filter((p) => p.length > 0).join('\n\n') + '\n'
+}
+
+// ---------------------------------------------------------------------------
+// Output per PON, dipecah per N pelanggan
+// ---------------------------------------------------------------------------
+
+export interface OutputFile {
+  id: string
+  /** nama file tanpa ekstensi */
+  name: string
+  pon: number
+  part: number
+  parts: number
+  count: number
+  minId: number
+  maxId: number
+  config: string
+}
+
+/** Pelanggan valid dikelompokkan per PON, urut ONU ID. */
+export function groupByPon(rows: AnalyzedRow[]): Map<number, AnalyzedRow[]> {
+  const map = new Map<number, AnalyzedRow[]>()
+  for (const r of rows) {
+    if (!r.ok || r.onuId == null) continue
+    const list = map.get(r.customer.pon)
+    if (list) list.push(r)
+    else map.set(r.customer.pon, [r])
+  }
+  for (const list of map.values()) list.sort((a, b) => (a.onuId as number) - (b.onuId as number))
+  return new Map([...map.entries()].sort((a, b) => a[0] - b[0]))
+}
+
+/**
+ * Buat daftar file config.
+ * scope: nomor PON, atau 'all' untuk semua PON. chunk: jumlah pelanggan per file, atau 'all' untuk satu file per PON.
+ * Tiap file lengkap dengan header dan footer, jadi bisa langsung dipaste sendiri-sendiri.
+ */
+export function buildFiles(
+  rows: AnalyzedRow[],
+  params: Params,
+  templates: Templates,
+  scope: number | 'all',
+  chunk: number | 'all',
+): OutputFile[] {
+  const files: OutputFile[] = []
+  const size = chunk === 'all' ? Number.MAX_SAFE_INTEGER : Math.max(1, Math.floor(chunk))
+
+  for (const [pon, list] of groupByPon(rows)) {
+    if (scope !== 'all' && scope !== pon) continue
+    const parts = Math.ceil(list.length / size)
+    const width = String(parts).length
+    for (let p = 0; p < parts; p++) {
+      const slice = list.slice(p * size, p * size + size)
+      const minId = slice[0].onuId as number
+      const maxId = slice[slice.length - 1].onuId as number
+      const name =
+        parts === 1
+          ? `pon-${pon}`
+          : `pon-${pon}_bagian-${String(p + 1).padStart(width, '0')}-dari-${parts}_onu-${minId}-${maxId}`
+      files.push({
+        id: `${pon}:${p}`,
+        name,
+        pon,
+        part: p + 1,
+        parts,
+        count: slice.length,
+        minId,
+        maxId,
+        config: generateConfig(slice, { ...params, pon }, templates),
+      })
+    }
+  }
+  return files
 }

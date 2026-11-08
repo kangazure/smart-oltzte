@@ -18,6 +18,8 @@ export interface Params {
   lineProfile: string
   /** 'olt' = ZTEGdc79ec52 (seperti tampilan OLT), 'upper' = ZTEGDC79EC52 */
   snCase: 'olt' | 'upper'
+  /** 'upper' = nama pelanggan di config jadi HURUF BESAR semua */
+  nameCase?: 'asis' | 'upper'
   /** tipe ONU per 4 huruf awal SN (mis. VSOL -> nama tipe di OLT); kosong = pakai onuType */
   typeByVendor?: Record<string, string>
 }
