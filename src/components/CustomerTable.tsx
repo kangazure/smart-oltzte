@@ -137,7 +137,16 @@ export default function CustomerTable({ rows, slot, onUpdate, onRemove, onClear 
                     ) : (
                       <>
                         <td className="px-3 py-2 font-mono text-xs">{r.sn || '—'}</td>
-                        <td className="px-3 py-2">{r.customer.name || '—'}</td>
+                        <td className="px-3 py-2">
+                          {r.customer.name || '—'}
+                          {(r.customer.vlan != null || r.customer.profile) && (
+                            <span className="mt-0.5 block font-mono text-[10px] text-cyan-600 dark:text-cyan-300">
+                              {r.customer.vlan != null && `VLAN ${r.customer.vlan}`}
+                              {r.customer.vlan != null && r.customer.profile && ' · '}
+                              {r.customer.profile}
+                            </span>
+                          )}
+                        </td>
                         <td className="px-3 py-2 font-mono text-xs">
                           {slot}/{r.customer.pon}
                         </td>

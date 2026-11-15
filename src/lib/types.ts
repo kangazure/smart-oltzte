@@ -5,6 +5,10 @@ export interface Customer {
   pon: number
   /** null = ONU ID dipilih otomatis */
   onuId: number | null
+  /** VLAN khusus pelanggan ini; kosong = pakai VLAN di Parameter */
+  vlan?: number
+  /** profil khusus pelanggan ini (mengganti <SPEED> dan <LINE_PROFILE>); kosong = pakai Parameter */
+  profile?: string
 }
 
 export interface Params {

@@ -3,6 +3,9 @@ import type { AnalyzedRow, Customer, ExistingConfig, Issue, Params, Templates } 
 
 export const MAX_ONU_PER_PON = 128
 
+/** Nama profil yang aman untuk CLI */
+export const PROFILE_RE = /^[A-Za-z0-9_.-]{1,32}$/
+
 export const ponKey = (slot: number, pon: number): string => `${slot}/${pon}`
 
 /** 'olt' = vendor kapital + hex huruf kecil (seperti tampilan OLT VSOL); 'upper' = kapital semua. */
@@ -80,6 +83,8 @@ export function analyze(customers: Customer[], params: Params, existing: Existin
     else if (sanitizeName(c.name) !== c.name.trim().replace(/\s+/g, '_')) add('warn', `Nama disesuaikan: ${r.cleanName}`)
 
     if (!Number.isInteger(c.pon) || c.pon < 1) add('error', 'PON tidak valid')
+    if (c.vlan != null && (!Number.isInteger(c.vlan) || c.vlan < 1 || c.vlan > 4094)) add('error', 'VLAN harus 1-4094')
+    if (c.profile && !PROFILE_RE.test(c.profile)) add('error', 'Nama profil tidak valid (huruf, angka, _ - . maks 32)')
 
     if (c.onuId != null) {
       if (c.onuId < 1 || c.onuId > MAX_ONU_PER_PON) {
@@ -139,6 +144,9 @@ export function generateConfig(rows: AnalyzedRow[], params: Params, templates: T
         ONU_ID: r.onuId as number,
         SN: formatSn(r.sn, params.snCase),
         TYPE: params.typeByVendor?.[r.sn.slice(0, 4)]?.trim() || params.onuType,
+        VLAN: r.customer.vlan ?? params.vlan,
+        SPEED: r.customer.profile?.trim() || params.speed,
+        LINE_PROFILE: r.customer.profile?.trim() || params.lineProfile,
         CUSTOMER_NAME: r.cleanName,
       }),
     )

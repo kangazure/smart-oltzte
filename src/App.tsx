@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Sun,
+  UserPlus,
   Users,
   type LucideIcon,
 } from 'lucide-react'
@@ -16,6 +17,7 @@ import CustomerForm from './components/CustomerForm'
 import CustomerTable from './components/CustomerTable'
 import HistoryPanel from './components/HistoryPanel'
 import ImportPanel from './components/ImportPanel'
+import ManualPanel, { type ManualEntry } from './components/ManualPanel'
 import MigrationPanel from './components/MigrationPanel'
 import OutputPanel from './components/OutputPanel'
 import ParamsPanel from './components/ParamsPanel'
@@ -31,10 +33,11 @@ import { uid } from './lib/util'
 
 const ZTE_PRESET = PRESETS.find((p) => p.id === 'zte') ?? PRESETS[PRESETS.length - 1]
 
-type Tab = 'migrate' | 'customers' | 'params' | 'template' | 'import' | 'history'
+type Tab = 'migrate' | 'manual' | 'customers' | 'params' | 'template' | 'import' | 'history'
 
 const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'migrate', label: 'Migrasi', icon: ArrowRightLeft },
+  { id: 'manual', label: 'Manual', icon: UserPlus },
   { id: 'customers', label: 'Pelanggan', icon: Users },
   { id: 'params', label: 'Parameter', icon: SlidersHorizontal },
   { id: 'template', label: 'Template', icon: FileCode2 },
@@ -151,6 +154,12 @@ export default function App() {
     setTab('customers')
   }
 
+  const addManual = (e: ManualEntry) =>
+    setCustomers((prev) => [
+      ...prev,
+      { id: uid(), sn: normalizeSn(e.sn), name: e.name, pon: e.pon, onuId: e.onuId, vlan: e.vlan, profile: e.profile },
+    ])
+
   const mergeHistory = (items: HistoryItem[]) =>
     setHistory((prev) => {
       const ids = new Set(prev.map((p) => p.id))
@@ -240,6 +249,17 @@ export default function App() {
                     notify('Data impor dihapus', 'info')
                   }}
                   onApply={applyMigration}
+                  notify={notify}
+                />
+              )}
+              {tab === 'manual' && (
+                <ManualPanel
+                  params={params}
+                  templates={templates}
+                  existing={existing}
+                  listRows={rows}
+                  onExisting={setExisting}
+                  onAddToList={addManual}
                   notify={notify}
                 />
               )}

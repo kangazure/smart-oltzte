@@ -11,6 +11,26 @@ Alur utama aplikasi ini:
 3. Atur **peta PON** (PON asal → PON tujuan di ZTE). ONU ID dinomori ulang otomatis, atau bisa dipertahankan.
 4. Klik **Buat daftar pelanggan**, lalu cek tab **Parameter** (slot, tipe ONU per vendor, profile) dan ambil config dari preview (Copy / .cfg / .txt).
 
+### Registrasi manual (satu ONU)
+
+Tab **Manual** untuk mendaftarkan satu ONU tanpa upload backup: isi **SN, nama, VLAN, dan profil** (PON dan ONU ID opsional). Config langsung muncul, tinggal **Copy** atau **Download .cfg**.
+
+- VLAN dan profil yang dikosongkan memakai nilai di tab Parameter. Profil mengganti `<SPEED>` (template ZTE: `tcont profile` dan `traffic-limit`) dan `<LINE_PROFILE>` (template VSOL).
+- ONU ID otomatis memilih ID kosong berikutnya di PON itu, berdasarkan data tab **Impor OLT** dan daftar pelanggan. Tanpa data OLT, ID mulai dari ONU ID awal, jadi impor config OLT ZTE dulu atau isi ONU ID sendiri.
+- Opsi **Catat ONU ID terpakai** (aktif bawaan): setelah Copy / Download, ID dan SN dicatat sehingga registrasi berikutnya otomatis memakai ID selanjutnya, dan SN yang sama ditolak.
+- **Tambah ke daftar** memasukkan ONU (beserta VLAN dan profilnya) ke daftar pelanggan, untuk digabung dengan config lain di Output per PON. VLAN dan profil khusus tampil di bawah nama di tabel pelanggan.
+
+### Output per PON
+
+Panel **Output per PON** (di sisi kanan) memecah config sesuai kebutuhan:
+
+- Pilih **Semua PON** atau satu PON saja (mis. PON 1 dengan 100 pelanggan).
+- Pilih **pelanggan per file**: 10, 20, 50, Semua, atau angka sendiri. Tiap file lengkap dengan header (`configure terminal`) dan footer (`end`, `write`), jadi bisa dipaste sendiri-sendiri.
+- Tiap file bisa di-Copy atau didownload `.cfg` sendiri. **Download semua (ZIP)** membungkus semua bagian (dalam folder `PON-n/` jika lebih dari satu PON), dan **1 file gabungan** memuat semua PON dalam satu file.
+- Nama file memuat PON dan rentang ONU ID, mis. `pon-1_bagian-2-dari-5_onu-21-40.cfg`.
+- Tombol **HURUF BESAR** mengubah semua nama pelanggan di config menjadi kapital (`budi-sb11` menjadi `BUDI-SB11`).
+- ONU ID tetap berurutan lintas bagian, jadi bagian 2 melanjutkan bagian 1. Paste berurutan dari bagian pertama.
+
 Catatan:
 
 - Tab **Impor OLT** hanya untuk backup OLT **tujuan** (ZTE) yang sudah berisi ONU, supaya ONU ID tidak bentrok. Jangan diisi backup OLT lama.
@@ -152,5 +172,3 @@ nginx.conf      SPA fallback, cache aset, /healthz
 
 - Data pelanggan hanya disimpan di localStorage browser, tidak dikirim ke server mana pun.
 - Selalu uji config pada satu ONU sebelum dipakai ke OLT produksi, karena sintaks CLI bisa berbeda antar seri dan firmware.
-
-sekian trimakasihh
