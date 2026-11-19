@@ -1,4 +1,4 @@
-# OLT Config Generator
+# OLT Config Generator epek
 
 Website untuk membuat config registrasi ONU **ZTE C320 / C300** (format `.cfg`) dengan **ONU ID yang diambil dari database running-config** OLT, jadi tidak perlu menebak ID mana yang masih kosong. Frontend Vite + React, API serverless di folder `api/` (Vercel), database Postgres (Neon).
 
