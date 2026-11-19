@@ -35,15 +35,15 @@ export function parseExistingConfig(text: string): ExistingConfig {
     }
 
     // ZTE: interface gpon-olt_1/1
-    const olt = /^interface\s+gpon-olt_(\d+)\/(\d+)/i.exec(line)
+    const olt = /^interface\s+gpon-olt_(\d+(?:\/\d+)+)/i.exec(line)
     if (olt) {
-      current = `${Number(olt[1])}/${Number(olt[2])}`
+      current = olt[1]
       continue
     }
 
-    const onuIface = /^interface\s+gpon-onu_(\d+)\/(\d+):(\d+)/i.exec(line)
+    const onuIface = /^interface\s+gpon-onu_(\d+(?:\/\d+)+):(\d+)/i.exec(line)
     if (onuIface) {
-      mark(`${Number(onuIface[1])}/${Number(onuIface[2])}`, Number(onuIface[3]))
+      mark(onuIface[1], Number(onuIface[2]))
       current = null
       continue
     }

@@ -6,7 +6,7 @@ export const MAX_ONU_PER_PON = 128
 /** Nama profil yang aman untuk CLI */
 export const PROFILE_RE = /^[A-Za-z0-9_.-]{1,32}$/
 
-export const ponKey = (slot: number, pon: number): string => `${slot}/${pon}`
+export const ponKey = (slot: string | number, pon: number): string => `${slot}/${pon}`
 
 /** 'olt' = vendor kapital + hex huruf kecil (seperti tampilan OLT VSOL); 'upper' = kapital semua. */
 export function formatSn(sn: string, mode: Params['snCase']): string {
@@ -119,7 +119,14 @@ export function render(tpl: string, vars: Record<string, string | number>): stri
   return tpl.replace(/<([A-Z_]+)>/g, (m, key: string) => (key in vars ? String(vars[key]) : m))
 }
 
-const clean = (s: string): string => s.replace(/\r\n/g, '\n').replace(/^\n+/, '').replace(/\s+$/, '')
+/** Buang baris kosong dan spasi di ujung baris: config CLI tidak boleh ada baris kosong. */
+const clean = (s: string): string =>
+  s
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((l) => l.replace(/\s+$/, ''))
+    .filter((l) => l !== '')
+    .join('\n')
 
 /** Susun config akhir: header + satu blok per pelanggan valid + footer. */
 export function generateConfig(rows: AnalyzedRow[], params: Params, templates: Templates): string {
@@ -153,7 +160,7 @@ export function generateConfig(rows: AnalyzedRow[], params: Params, templates: T
   }
   parts.push(render(clean(templates.footer), base))
 
-  return parts.filter((p) => p.length > 0).join('\n\n') + '\n'
+  return parts.filter((p) => p.length > 0).join('\n') + '\n'
 }
 
 // ---------------------------------------------------------------------------

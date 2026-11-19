@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowRightLeft,
   DatabaseZap,
+  Database,
+  ListTree,
   FileCode2,
   History,
   Moon,
@@ -19,6 +21,10 @@ import HistoryPanel from './components/HistoryPanel'
 import ImportPanel from './components/ImportPanel'
 import ManualPanel, { type ManualEntry } from './components/ManualPanel'
 import MigrationPanel from './components/MigrationPanel'
+import OltPanel from './components/OltPanel'
+import OnuListPanel from './components/OnuListPanel'
+import RemoteGate from './components/RemoteGate'
+import SavedTemplates from './components/SavedTemplates'
 import OutputPanel from './components/OutputPanel'
 import ParamsPanel from './components/ParamsPanel'
 import TemplatePanel from './components/TemplatePanel'
@@ -30,14 +36,18 @@ import { normalizeSn } from './lib/sn'
 import type { Customer, ExistingConfig, HistoryItem, Notify, Params, Templates } from './lib/types'
 import { useLocalStorage } from './lib/useLocalStorage'
 import { uid } from './lib/util'
+import { toExisting } from './lib/oltData'
+import { useRemote } from './lib/useRemote'
 
 const ZTE_PRESET = PRESETS.find((p) => p.id === 'zte') ?? PRESETS[PRESETS.length - 1]
 
-type Tab = 'migrate' | 'manual' | 'customers' | 'params' | 'template' | 'import' | 'history'
+type Tab = 'olt' | 'manual' | 'onus' | 'migrate' | 'customers' | 'params' | 'template' | 'import' | 'history'
 
 const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
-  { id: 'migrate', label: 'Migrasi', icon: ArrowRightLeft },
   { id: 'manual', label: 'Manual', icon: UserPlus },
+  { id: 'olt', label: 'OLT', icon: Database },
+  { id: 'onus', label: 'Daftar ONU', icon: ListTree },
+  { id: 'migrate', label: 'Migrasi', icon: ArrowRightLeft },
   { id: 'customers', label: 'Pelanggan', icon: Users },
   { id: 'params', label: 'Parameter', icon: SlidersHorizontal },
   { id: 'template', label: 'Template', icon: FileCode2 },
@@ -63,12 +73,14 @@ function Stat({ label, value, tone }: { label: string; value: number; tone: keyo
 
 export default function App() {
   const [customers, setCustomers] = useLocalStorage<Customer[]>('olt.customers', [])
-  const [params, setParams] = useLocalStorage<Params>('olt.params', { ...DEFAULT_PARAMS, ...ZTE_PRESET.params })
-  const [templates, setTemplates] = useLocalStorage<Templates>('olt.templates', ZTE_TEMPLATES)
+  const [params, setParams] = useLocalStorage<Params>('olt.params.v2', { ...DEFAULT_PARAMS, ...ZTE_PRESET.params })
+  const [templates, setTemplates] = useLocalStorage<Templates>('olt.templates.v2', ZTE_TEMPLATES)
   const [existing, setExisting] = useLocalStorage<ExistingConfig>('olt.existing', { used: {}, sns: [] })
   const [history, setHistory] = useLocalStorage<HistoryItem[]>('olt.history', [])
   const [dark, setDark] = useLocalStorage<boolean>('olt.dark', true)
-  const [tab, setTab] = useState<Tab>('migrate')
+  const remote = useRemote()
+  const [tab, setTab] = useState<Tab>('manual')
+  const freshTemplates = useRef(localStorage.getItem('olt.templates.v2') === null)
   const [toasts, setToasts] = useState<ToastMsg[]>([])
 
   useEffect(() => {
@@ -81,7 +93,20 @@ export default function App() {
     window.setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3200)
   }, [])
 
-  const rows = useMemo(() => analyze(customers, params, existing), [customers, params, existing])
+  const dbExisting = useMemo(() => (remote.ok && remote.active ? toExisting(remote.onus) : null), [remote.ok, remote.active, remote.onus])
+  const effExisting = dbExisting ?? existing
+
+  // browser baru: pakai template bawaan dari database
+  useEffect(() => {
+    if (!freshTemplates.current || !remote.ok) return
+    const t = remote.savedTemplates.find((x) => x.name === remote.settings.defaultTemplate)
+    if (t) {
+      setTemplates({ header: t.header, block: t.block, footer: t.footer })
+      freshTemplates.current = false
+    }
+  }, [remote.ok, remote.savedTemplates, remote.settings.defaultTemplate, setTemplates])
+
+  const rows = useMemo(() => analyze(customers, params, effExisting), [customers, params, effExisting])
   const config = useMemo(() => generateConfig(rows, params, templates), [rows, params, templates])
   const okCount = rows.filter((r) => r.ok).length
   const errCount = rows.length - okCount
@@ -183,13 +208,19 @@ export default function App() {
             <div className="leading-tight">
               <h1 className="text-base font-semibold tracking-tight">OLT Config Generator</h1>
               <p className="hidden text-xs text-slate-500 dark:text-slate-400 sm:block">
-                Migrasi OLT VSOL / Global → ZTE C320: backup → SN + nama → config registrasi
+                Registrasi ONU ZTE C320 / C300 dengan ONU ID dari database running-config
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="hidden items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-300 md:inline-flex">
-              <ShieldCheck size={13} /> Diproses di browser
+            <span
+              className={`hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium md:inline-flex ${
+                remote.ok
+                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
+                  : 'border-slate-400/30 bg-slate-500/10 text-slate-500 dark:text-slate-400'
+              }`}
+            >
+              <ShieldCheck size={13} /> {remote.ok ? `Database terhubung${remote.active ? ` · ${remote.active.name}` : ''}` : 'Mode lokal (browser)'}
             </span>
             <button
               className="btn-ghost !p-2.5"
@@ -214,7 +245,7 @@ export default function App() {
         <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
           <section className="glass min-w-0 overflow-hidden">
             <nav className="flex gap-1 overflow-x-auto border-b border-slate-200/70 p-2 dark:border-white/10">
-              {TABS.map(({ id, label, icon: Icon }) => (
+              {TABS.filter((t) => t.id !== 'import' || !remote.ok).map(({ id, label, icon: Icon }) => (
                 <button
                   key={id}
                   onClick={() => setTab(id)}
@@ -238,7 +269,7 @@ export default function App() {
                 <MigrationPanel
                   customerCount={customers.length}
                   templatesAreZte={templatesAreZte}
-                  existingSnCount={existing.sns.length}
+                  existingSnCount={effExisting.sns.length}
                   onApplyZte={() => {
                     setTemplates(ZTE_TEMPLATES)
                     setParams((p) => ({ ...p, ...ZTE_PRESET.params }))
@@ -258,10 +289,21 @@ export default function App() {
                   templates={templates}
                   existing={existing}
                   listRows={rows}
+                  remote={remote}
                   onExisting={setExisting}
                   onAddToList={addManual}
                   notify={notify}
                 />
+              )}
+              {tab === 'olt' && (
+                <RemoteGate remote={remote}>
+                  <OltPanel remote={remote} notify={notify} />
+                </RemoteGate>
+              )}
+              {tab === 'onus' && (
+                <RemoteGate remote={remote}>
+                  <OnuListPanel remote={remote} notify={notify} />
+                </RemoteGate>
               )}
               {tab === 'customers' && (
                 <div className="space-y-6">
@@ -280,15 +322,28 @@ export default function App() {
               {tab === 'params' && (
                 <ParamsPanel
                   params={params}
-                  lineProfiles={existing.lineProfiles ?? []}
+                  lineProfiles={effExisting.lineProfiles ?? []}
                   vendors={vendors}
                   onChange={setParams}
                 />
               )}
               {tab === 'template' && (
-                <TemplatePanel templates={templates} params={params} onChange={setTemplates} onParams={setParams} />
+                <div className="space-y-5">
+                  <SavedTemplates
+                    current={templates}
+                    saved={remote.savedTemplates}
+                    defaultName={remote.settings.defaultTemplate}
+                    inDatabase={remote.ok}
+                    onSave={remote.saveTemplate}
+                    onDelete={remote.deleteTemplate}
+                    onDefault={(n) => remote.saveSettings({ defaultTemplate: n })}
+                    onLoad={setTemplates}
+                    notify={notify}
+                  />
+                  <TemplatePanel templates={templates} params={params} onChange={setTemplates} onParams={setParams} />
+                </div>
               )}
-              {tab === 'import' && (
+              {tab === 'import' && !remote.ok && (
                 <ImportPanel
                   existing={existing}
                   startOnuId={params.startOnuId}
@@ -322,8 +377,10 @@ export default function App() {
               notify={notify}
             />
             <p className="px-1 text-[11px] leading-relaxed text-slate-400 dark:text-slate-500">
-              Data tersimpan di browser ini (localStorage) dan tidak dikirim ke server. Uji dulu pada satu ONU sebelum
-              paste ke OLT produksi.
+              {remote.ok
+                ? 'Data OLT, ONU, template, dan pilihan VLAN tersimpan di database. '
+                : 'Data tersimpan di browser ini (localStorage). '}
+              Uji dulu pada satu ONU sebelum paste ke OLT produksi.
             </p>
           </section>
         </div>

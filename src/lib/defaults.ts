@@ -1,11 +1,11 @@
 import type { Params, Templates } from './types'
 
 export const DEFAULT_PARAMS: Params = {
-  slot: 0,
+  slot: '1/2',
   pon: 1,
-  onuType: 'ZTE-F609',
-  vlan: 444,
-  speed: '30M',
+  onuType: 'ALL',
+  vlan: 450,
+  speed: '50M',
   startOnuId: 1,
   lineProfile: 'line_1',
   snCase: 'olt',
@@ -32,24 +32,23 @@ exit`,
 write`,
 }
 
-/** Template ZTE (template awal dari pengguna). */
+/**
+ * Template ZTE C320/C300 (format yang dipakai di OLT, tanpa baris kosong).
+ * <SLOT> = rack/slot ("1/2"), <PON> = nomor port, jadi gpon-olt_<SLOT>/<PON> = gpon-olt_1/2/1.
+ */
 export const ZTE_TEMPLATES: Templates = {
   header: `configure terminal`,
   block: `interface gpon-olt_<SLOT>/<PON>
 onu <ONU_ID> type <TYPE> sn <SN>
 exit
-
 interface gpon-onu_<SLOT>/<PON>:<ONU_ID>
 name <CUSTOMER_NAME>
-sn-bind enable sn
 tcont 1 profile <SPEED>
 gemport 1 name Internet tcont 1
 gemport 1 traffic-limit upstream <SPEED> downstream <SPEED>
 encrypt 1 enable downstream
 service-port 1 vport 1 user-vlan <VLAN> vlan <VLAN>
-service-port 1 description PPPoE
 exit
-
 pon-onu-mng gpon-onu_<SLOT>/<PON>:<ONU_ID>
 service Internet gemport 1 vlan <VLAN>
 vlan port veip_1 mode hybrid
@@ -82,14 +81,14 @@ export const PRESETS: Preset[] = [
   {
     id: 'zte',
     label: 'ZTE',
-    desc: 'Template awal: gpon-olt_, pon-onu-mng',
+    desc: 'ZTE C320/C300: gpon-olt_1/2/1, tanpa baris kosong',
     templates: ZTE_TEMPLATES,
-    params: { slot: 1, snCase: 'upper' },
+    params: { slot: '1/2', snCase: 'upper' },
   },
 ]
 
 export const PLACEHOLDERS: { token: string; desc: string }[] = [
-  { token: '<SLOT>', desc: 'Nomor slot (parameter)' },
+  { token: '<SLOT>', desc: 'Rack/slot, mis. 1/2 (dari port OLT)' },
   { token: '<PON>', desc: 'Nomor PON port pelanggan' },
   { token: '<ONU_ID>', desc: 'ONU ID (otomatis / manual)' },
   { token: '<SN>', desc: 'Serial number ONU' },

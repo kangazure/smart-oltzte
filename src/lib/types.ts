@@ -12,7 +12,8 @@ export interface Customer {
 }
 
 export interface Params {
-  slot: number
+  /** rack/slot, mis. "1/2" (ZTE C320/C300) atau "0" (VSOL) */
+  slot: string | number
   pon: number
   onuType: string
   vlan: number

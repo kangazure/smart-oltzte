@@ -1,8 +1,72 @@
 # OLT Config Generator
 
-Website untuk mengubah daftar pelanggan (**SN ONU + nama**) menjadi config registrasi ONU format `.cfg`, siap di-paste atau di-upload ke OLT. Semua proses berjalan di browser (tanpa backend dan database), jadi cukup di-deploy sebagai static site.
+Website untuk membuat config registrasi ONU **ZTE C320 / C300** (format `.cfg`) dengan **ONU ID yang diambil dari database running-config** OLT, jadi tidak perlu menebak ID mana yang masih kosong. Frontend Vite + React, API serverless di folder `api/` (Vercel), database Postgres (Neon).
 
-## Migrasi OLT VSOL / Global ke ZTE C320
+## Alur pakai
+
+1. **OLT**: upload file `show running-config` tiap OLT ZTE (boleh banyak file sekaligus). Semua ONU (port, ONU ID, SN, nama, VLAN, profil) masuk database. Upload ulang file terbaru kapan saja untuk menyegarkan data OLT yang sama.
+2. **Manual**: pilih OLT dan port, isi SN, nama, VLAN, profil. ONU ID otomatis memakai **ID kosong pertama** di port itu (celah di tengah ikut dipakai, mis. ID 6 jika 1-5 dan 7-9 terpakai). Klik Copy atau Download .cfg. ONU yang baru dibuat otomatis dicatat ke database, jadi registrasi berikutnya memakai ID selanjutnya.
+3. **Daftar ONU**: lihat dan cari nama / SN semua ONU per OLT dan port (data dari running-config), lengkap dengan ID kosong tiap port, export CSV. Catatan keliru bisa dihapus dari database (OLT aslinya tidak ikut berubah).
+4. **Template**: edit template config sesuai kebutuhan, lalu simpan dengan nama di database. Tombol bintang menjadikannya bawaan untuk browser baru.
+
+### Tab Manual
+
+- VLAN: tombol cepat **450, 444, 500, 200, 300** atau ketik bebas. Daftar pilihan VLAN, profil, dan tipe ONU bisa diubah lewat "Atur pilihan" (tersimpan di database).
+- Profil mengganti `<SPEED>` di template (`tcont profile` dan `traffic-limit`). Tipe ONU bawaan `ALL`.
+- Nama bisa dijadikan HURUF BESAR. Peringatan muncul jika nama sudah dipakai ONU lain di OLT itu.
+- SN yang sudah terdaftar ditolak, lengkap dengan lokasinya (port dan ONU ID).
+- Tambah ke daftar: memasukkan ONU ke daftar pelanggan untuk digabung dengan config lain (Output per PON).
+
+## Format config ZTE
+
+`<SLOT>` berisi rack/slot (`1/2`) dan `<PON>` nomor port, sehingga `gpon-olt_<SLOT>/<PON>` menjadi `gpon-olt_1/2/1`. Output **tanpa baris kosong**:
+
+```
+configure terminal
+interface gpon-olt_1/2/1
+onu 6 type ALL sn ZTEGD5D8F864
+exit
+interface gpon-onu_1/2/1:6
+name CONTOH
+tcont 1 profile 50M
+gemport 1 name Internet tcont 1
+gemport 1 traffic-limit upstream 50M downstream 50M
+encrypt 1 enable downstream
+service-port 1 vport 1 user-vlan 450 vlan 450
+exit
+pon-onu-mng gpon-onu_1/2/1:6
+service Internet gemport 1 vlan 450
+vlan port veip_1 mode hybrid
+vlan port veip_1 vlan 450
+security-mgmt 1 state enable mode forward protocol web http
+interface wifi wifi_0/1 state unlock
+exit
+end
+write
+```
+
+Nomor ONU di baris `onu <ONU_ID>` dan `gpon-onu_...:<ONU_ID>` selalu sama (ONU ID harus sama di kedua baris).
+
+## Deploy di Vercel (dengan database)
+
+1. Push project ini ke GitHub, lalu **Add New → Project** di Vercel dan import repository-nya (Framework: Vite, otomatis).
+2. Buat database: di project Vercel buka **Storage → Create Database → Neon (Postgres)**, lalu hubungkan ke project. Variabel `DATABASE_URL` / `POSTGRES_URL` terisi otomatis. Tabel dibuat sendiri saat API pertama dipakai.
+3. Buka **Settings → Environment Variables**, tambahkan `APP_PASSWORD` (password untuk masuk ke aplikasi, wajib karena data berisi nama pelanggan).
+4. **Redeploy**. Buka situsnya, tab **OLT**, masukkan password, lalu upload keempat file running-config.
+
+Variabel lingkungan ada di `.env.example`. Tanpa `APP_PASSWORD` atau database, API menolak semua permintaan (aman secara bawaan).
+
+### Mode lokal (tanpa database)
+
+Di `npm run dev`, Dockerfile / Dokploy, atau hosting statis lain, API tidak ada. Aplikasi tetap jalan: tab Manual memakai data dari tab **Impor OLT**, dan template tersimpan di browser. Untuk mencoba API lokal, jalankan `vercel dev` dengan `DATABASE_URL` yang valid.
+
+### Keamanan
+
+- Semua endpoint `/api/*` (kecuali `/api/health`) butuh header `x-app-password`; password dibandingkan secara constant-time. Password disimpan di localStorage browser setelah login.
+- Ini password tunggal bersama (bukan akun per pengguna). Pakai password yang kuat.
+- Query database memakai parameter (aman dari SQL injection). Input SN, port, VLAN, profil, dan tipe divalidasi di server.
+
+## Migrasi OLT VSOL / Global ke ZTE C320 (opsional)
 
 Alur utama aplikasi ini:
 
@@ -10,15 +74,6 @@ Alur utama aplikasi ini:
 2. SN dan nama pelanggan dibaca otomatis. Backup **VSOL** dibaca persis (`interface gpon 0/1`, `onu add ... sn ...`, `onu N desc ...`). Format lain dibaca dengan parser **Umum** yang menebak dari kata kunci `name / desc / description / alias`, jadi periksa contoh hasilnya.
 3. Atur **peta PON** (PON asal → PON tujuan di ZTE). ONU ID dinomori ulang otomatis, atau bisa dipertahankan.
 4. Klik **Buat daftar pelanggan**, lalu cek tab **Parameter** (slot, tipe ONU per vendor, profile) dan ambil config dari preview (Copy / .cfg / .txt).
-
-### Registrasi manual (satu ONU)
-
-Tab **Manual** untuk mendaftarkan satu ONU tanpa upload backup: isi **SN, nama, VLAN, dan profil** (PON dan ONU ID opsional). Config langsung muncul, tinggal **Copy** atau **Download .cfg**.
-
-- VLAN dan profil yang dikosongkan memakai nilai di tab Parameter. Profil mengganti `<SPEED>` (template ZTE: `tcont profile` dan `traffic-limit`) dan `<LINE_PROFILE>` (template VSOL).
-- ONU ID otomatis memilih ID kosong berikutnya di PON itu, berdasarkan data tab **Impor OLT** dan daftar pelanggan. Tanpa data OLT, ID mulai dari ONU ID awal, jadi impor config OLT ZTE dulu atau isi ONU ID sendiri.
-- Opsi **Catat ONU ID terpakai** (aktif bawaan): setelah Copy / Download, ID dan SN dicatat sehingga registrasi berikutnya otomatis memakai ID selanjutnya, dan SN yang sama ditolak.
-- **Tambah ke daftar** memasukkan ONU (beserta VLAN dan profilnya) ke daftar pelanggan, untuk digabung dengan config lain di Output per PON. VLAN dan profil khusus tampil di bawah nama di tabel pelanggan.
 
 ### Output per PON
 
@@ -73,53 +128,23 @@ Baris `interface gpon` sampai `exit` diambil dari format backup OLT VSOL V1.4.8R
 
 Penulisan SN mengikuti tampilan OLT (`ZTEGdc79ec52`: vendor kapital, hex huruf kecil). Bisa diganti ke kapital semua di tab Parameter.
 
-### ZTE (template awal)
+### ZTE (bawaan)
 
-```
-configure terminal
-
-interface gpon-olt_<SLOT>/<PON>
-onu <ONU_ID> type <TYPE> sn <SN>
-exit
-
-interface gpon-onu_<SLOT>/<PON>:<ONU_ID>
-name <CUSTOMER_NAME>
-sn-bind enable sn
-tcont 1 profile <SPEED>
-gemport 1 name Internet tcont 1
-gemport 1 traffic-limit upstream <SPEED> downstream <SPEED>
-encrypt 1 enable downstream
-service-port 1 vport 1 user-vlan <VLAN> vlan <VLAN>
-service-port 1 description PPPoE
-exit
-
-pon-onu-mng gpon-onu_<SLOT>/<PON>:<ONU_ID>
-service Internet gemport 1 vlan <VLAN>
-vlan port veip_1 mode hybrid
-vlan port veip_1 vlan <VLAN>
-security-mgmt 1 state enable mode forward protocol web http
-interface wifi wifi_0/1 state unlock
-exit
-
-end
-write
-```
-
-`configure terminal` (header) dan `end` + `write` (footer) hanya ditulis **sekali**, sedangkan blok di tengah diulang untuk setiap pelanggan.
+Lihat bagian **Format config ZTE** di atas. `configure terminal` (header) dan `end` + `write` (footer) ditulis **sekali** per file, blok di tengah diulang untuk setiap ONU.
 
 | Placeholder | Isi |
 | --- | --- |
-| `<SLOT>` | Slot (tab Parameter) |
+| `<SLOT>` | Rack/slot, mis. `1/2` (dari port yang dipilih) |
 | `<PON>` | PON port pelanggan (kolom PON, atau PON bawaan) |
 | `<ONU_ID>` | ONU ID otomatis / manual |
 | `<LINE_PROFILE>` | Nama line profile (tab Parameter, bawaan `line_1`) |
 | `<TYPE>` | Tipe ONU (tab Parameter, template ZTE) |
 | `<SN>` | Serial number (uppercase) |
 | `<CUSTOMER_NAME>` | Nama pelanggan yang sudah disanitasi |
-| `<VLAN>` | VLAN (tab Parameter, bawaan 444) |
-| `<SPEED>` | Kecepatan / nama profile (tab Parameter, bawaan 30M) |
+| `<VLAN>` | VLAN (pilihan di tab Manual, bawaan di Parameter) |
+| `<SPEED>` | Nama profil / kecepatan (bawaan 50M) |
 
-> Tipe ONU bawaan adalah `ZTE-F609`. Ganti di tab **Parameter** sesuai tipe ONU yang terdaftar di OLT kamu. Profile `<SPEED>` (mis. `30M`) harus sudah ada di OLT.
+> Tipe ONU bawaan `ALL`. Profil (mis. `50M`) harus sudah ada di OLT.
 
 ## Contoh input
 
@@ -128,7 +153,7 @@ GPON1A2B3C4D,Budi Santoso
 ZTEGC1234567,Siti Aminah
 ```
 
-Hasilnya: ONU ID 1 dan 2 di PON 1, nama menjadi `Budi_Santoso` dan `Siti_Aminah`.
+Hasilnya: ONU ID otomatis berurutan di PON 1, nama menjadi `Budi_Santoso` dan `Siti_Aminah`.
 
 ## Jalankan lokal
 

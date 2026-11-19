@@ -3,7 +3,7 @@ import { DEFAULT_PARAMS, ZTE_TEMPLATES } from './defaults'
 import { analyze, generateConfig, sanitizeName } from './generator'
 import type { Customer, ExistingConfig, Params } from './types'
 
-const P: Params = { ...DEFAULT_PARAMS, slot: 1, snCase: 'upper' }
+const P: Params = { ...DEFAULT_PARAMS, slot: 1, snCase: 'upper', vlan: 444, speed: '30M', onuType: 'ZTE-F609' }
 
 const c = (sn: string, name: string, pon = 1, onuId: number | null = null): Customer => ({
   id: `${sn}-${name}-${pon}-${onuId}`,
@@ -93,37 +93,39 @@ describe('analyze', () => {
 })
 
 describe('generateConfig', () => {
-  it('menghasilkan config sesuai template untuk satu pelanggan', () => {
-    const rows = analyze([c('GPON1A2B3C4D', 'Budi Santoso')], P, none)
-    const out = generateConfig(rows, P, ZTE_TEMPLATES)
+  it('menghasilkan config ZTE C320 persis seperti format di OLT (tanpa baris kosong)', () => {
+    const Z: Params = { ...DEFAULT_PARAMS, slot: '1/2', pon: 1, snCase: 'upper' }
+    const rows = analyze([{ ...c('ZTEGD5D8F864', 'CONTOH', 1, 100), vlan: 450, profile: '50M' }], Z, none)
+    const out = generateConfig(rows, Z, ZTE_TEMPLATES)
     expect(out).toBe(`configure terminal
-
-interface gpon-olt_1/1
-onu 1 type ZTE-F609 sn GPON1A2B3C4D
+interface gpon-olt_1/2/1
+onu 100 type ALL sn ZTEGD5D8F864
 exit
-
-interface gpon-onu_1/1:1
-name Budi_Santoso
-sn-bind enable sn
-tcont 1 profile 30M
+interface gpon-onu_1/2/1:100
+name CONTOH
+tcont 1 profile 50M
 gemport 1 name Internet tcont 1
-gemport 1 traffic-limit upstream 30M downstream 30M
+gemport 1 traffic-limit upstream 50M downstream 50M
 encrypt 1 enable downstream
-service-port 1 vport 1 user-vlan 444 vlan 444
-service-port 1 description PPPoE
+service-port 1 vport 1 user-vlan 450 vlan 450
 exit
-
-pon-onu-mng gpon-onu_1/1:1
-service Internet gemport 1 vlan 444
+pon-onu-mng gpon-onu_1/2/1:100
+service Internet gemport 1 vlan 450
 vlan port veip_1 mode hybrid
-vlan port veip_1 vlan 444
+vlan port veip_1 vlan 450
 security-mgmt 1 state enable mode forward protocol web http
 interface wifi wifi_0/1 state unlock
 exit
-
 end
 write
 `)
+    expect(out).not.toMatch(/\n\n/)
+  })
+
+  it('template dengan baris kosong tetap menghasilkan config tanpa baris kosong', () => {
+    const rows = analyze([c('GPON1A2B3C4D', 'Budi')], P, none)
+    const out = generateConfig(rows, P, { header: 'a\n\n', block: 'x <ONU_ID>\n\n  \ny', footer: '\nz' })
+    expect(out).toBe('a\nx 1\ny\nz\n')
   })
 
   it('header dan footer hanya muncul sekali untuk banyak pelanggan', () => {

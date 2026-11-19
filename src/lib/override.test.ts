@@ -3,7 +3,7 @@ import { DEFAULT_PARAMS, VSOL_TEMPLATES, ZTE_TEMPLATES } from './defaults'
 import { analyze, generateConfig } from './generator'
 import type { Customer, Params } from './types'
 
-const P: Params = { ...DEFAULT_PARAMS, slot: 1, snCase: 'upper' }
+const P: Params = { ...DEFAULT_PARAMS, slot: 1, snCase: 'upper', vlan: 444, speed: '30M', onuType: 'ZTE-F609' }
 const none = { used: {}, sns: [] }
 const c = (extra: Partial<Customer> = {}): Customer => ({
   id: 'x',

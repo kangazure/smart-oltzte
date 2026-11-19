@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_PARAMS, DEFAULT_TEMPLATES } from './defaults'
+import { DEFAULT_PARAMS as BASE, DEFAULT_TEMPLATES } from './defaults'
+
+const DEFAULT_PARAMS = { ...BASE, slot: 0, snCase: 'olt' as const }
 import { analyze, generateConfig } from './generator'
 import { parseExistingConfig } from './importCfg'
 import type { Customer } from './types'
@@ -50,13 +52,11 @@ describe('format VSOL', () => {
     const rows = analyze([c('ZTEGC1234567', 'Budi Santoso')], DEFAULT_PARAMS, existing)
     expect(rows[0].onuId).toBe(2)
     expect(generateConfig(rows, DEFAULT_PARAMS, DEFAULT_TEMPLATES)).toBe(`configure terminal
-
 interface gpon 0/1
 onu add 2 profile default sn ZTEGc1234567
 onu 2 desc Budi_Santoso
 onu 2 profile line name line_1
 exit
-
 end
 write
 `)

@@ -25,7 +25,15 @@ export default function ParamsPanel({ params, lineProfiles, vendors, onChange }:
   return (
     <div className="animate-fade-in space-y-5">
       <div className="grid grid-cols-3 gap-3">
-        <NumberField label="Slot" value={params.slot} min={0} max={99} onChange={(n) => set('slot', n)} />
+        <label className="block">
+          <span className="label">Rack/slot</span>
+          <input
+            className="field font-mono"
+            value={params.slot}
+            placeholder="1/2"
+            onChange={(e) => set('slot', e.target.value.replace(/[^\d/]/g, '').slice(0, 8))}
+          />
+        </label>
         <NumberField
           label="PON bawaan"
           value={params.pon}

@@ -6,8 +6,8 @@ import type { ExistingConfig, Notify } from '../lib/types'
 interface Props {
   existing: ExistingConfig
   startOnuId: number
-  slot: number
-  onSlot: (n: number) => void
+  slot: string | number
+  onSlot: (n: string) => void
   onChange: (e: ExistingConfig) => void
   notify: Notify
 }
@@ -34,8 +34,8 @@ export default function ImportPanel({ existing, startOnuId, slot, onSlot, onChan
     setText('')
     notify(`${total} ONU terdeteksi di ${Object.keys(result.used).length} PON`, 'ok')
 
-    const slots = [...new Set(Object.keys(result.used).map((k) => Number(k.split('/')[0])))]
-    if (slots.length === 1 && slots[0] !== slot) {
+    const slots = [...new Set(Object.keys(result.used).map((k) => k.split('/').slice(0, -1).join('/')))]
+    if (slots.length === 1 && slots[0] !== String(slot)) {
       onSlot(slots[0])
       notify(`Parameter Slot diubah ke ${slots[0]} sesuai config OLT`, 'info')
     }

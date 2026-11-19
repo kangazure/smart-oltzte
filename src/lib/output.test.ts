@@ -4,7 +4,7 @@ import { analyze, buildFiles, groupByPon } from './generator'
 import type { Customer, Params } from './types'
 import { crc32, makeZip } from './zip'
 
-const P: Params = { ...DEFAULT_PARAMS, slot: 1, snCase: 'upper' }
+const P: Params = { ...DEFAULT_PARAMS, slot: 1, snCase: 'upper', vlan: 444, speed: '30M', onuType: 'ZTE-F609' }
 const sn = (i: number) => `ZTEG${String(i).padStart(8, '0')}`
 const make = (n: number, pon: number, from = 0): Customer[] =>
   Array.from({ length: n }, (_, i) => ({ id: `${pon}-${from + i}`, sn: sn(pon * 1000 + from + i), name: `Pelanggan ${from + i}`, pon, onuId: null }))

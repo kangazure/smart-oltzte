@@ -5,7 +5,7 @@ import type { AnalyzedRow, Customer } from '../lib/types'
 
 interface Props {
   rows: AnalyzedRow[]
-  slot: number
+  slot: string | number
   onUpdate: (id: string, patch: Partial<Customer>) => void
   onRemove: (id: string) => void
   onClear: () => void
